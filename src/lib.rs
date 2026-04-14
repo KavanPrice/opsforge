@@ -4,9 +4,15 @@
 //! functions defined by the MESA International standard.
 //!
 //! Each module corresponds to one MESA function and exposes a single primary
-//! trait. Implementations (database-backed, in-memory, mock, etc.) live
-//! downstream — this crate is intentionally dependency-free and provides
-//! only interfaces and the shared types they operate on.
+//! trait generic over an identity type `ID`. Implementations (database-backed,
+//! in-memory, mock, etc.) live downstream.
+//!
+//! ## Features
+//!
+//! | Feature | Enables |
+//! |---------|---------|
+//! | `default-models` | [`default_models`] — concrete type aliases using [`uuid::Uuid`] |
+//! | `serde` | [`serde::Serialize`] / [`serde::Deserialize`] on all opsforge-owned types, and enables `rs95/serde` |
 //!
 //! ## MESA 11 Functions
 //!
@@ -23,6 +29,9 @@
 //! | 9 | [`maintenance_management`] | [`MaintenanceManagement`] |
 //! | 10 | [`product_tracking`] | [`ProductTracking`] |
 //! | 11 | [`performance_analysis`] | [`PerformanceAnalysis`] |
+
+#[cfg(feature = "default-models")]
+pub mod default_models;
 
 pub mod data_collection;
 pub mod dispatching;
