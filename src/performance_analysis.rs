@@ -14,6 +14,14 @@ use rs95::core::operations::{OperationsCapability, OperationsPerformance};
 
 /// A named KPI with its target value and statistical control limits.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct KpiTarget<ID> {
     pub id: ID,
     pub name: String,
@@ -27,6 +35,14 @@ pub struct KpiTarget<ID> {
 /// Overall Equipment Effectiveness breakdown for a piece of equipment over a
 /// given time period.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct OeeReport<ID> {
     pub equipment_id: ID,
     pub period_start: Option<String>,

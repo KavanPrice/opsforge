@@ -15,6 +15,7 @@ use rs95::core::operations::{JobResponse, SegmentResponse};
 
 /// The integration source of a raw data point.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DataSource {
     ManualEntry,
     Scada,
@@ -30,6 +31,14 @@ pub enum DataSource {
 /// For structured execution results (actual resource consumption, segment
 /// outcomes) use [`SegmentResponse`] or [`JobResponse`] instead.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct DataPoint<ID> {
     /// Tag name or signal identifier (e.g. `"reactor1.temperature"`).
     pub tag: String,

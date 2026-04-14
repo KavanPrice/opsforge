@@ -18,6 +18,14 @@ use rs95::core::{
 
 /// A clock-in or clock-out attendance event for a worker.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct AttendanceRecord<ID> {
     pub person_id: ID,
     pub clocked_in_at: Option<String>,

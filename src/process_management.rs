@@ -15,6 +15,7 @@ use rs95::core::operations::{OperationsPerformance, OperationsResponse};
 
 /// Severity level of a process alarm or deviation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AlarmSeverity {
     Info,
     Warning,
@@ -23,6 +24,14 @@ pub enum AlarmSeverity {
 
 /// A process alarm raised when a parameter moves outside acceptable limits.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct ProcessAlarm<ID> {
     pub id: ID,
     pub job_order_id: Option<ID>,
@@ -41,6 +50,14 @@ pub struct ProcessAlarm<ID> {
 
 /// A corrective action directive issued in response to a process alarm.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct CorrectiveAction<ID> {
     pub id: ID,
     pub alarm_id: ID,

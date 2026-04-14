@@ -20,6 +20,7 @@ use rs95::core::{
 
 /// Disposition decision applied to a non-conforming item.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Disposition {
     Accept,
     ConditionalAccept,
@@ -33,6 +34,14 @@ pub enum Disposition {
 /// The `id` field uses the same `ID` type parameter as the surrounding ISA-95
 /// objects so that implementors can use a consistent identity strategy.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct NonConformanceReport<ID> {
     pub id: ID,
     pub job_order_id: ID,

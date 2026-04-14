@@ -20,6 +20,14 @@ use rs95::core::{
 /// Times are `Option<String>` to accept any ISO 8601 or site-specific format,
 /// consistent with the rs95 convention.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "ID: serde::Serialize",
+        deserialize = "ID: serde::Deserialize<'de>"
+    ))
+)]
 pub struct Allocation<ID> {
     pub resource_id: ID,
     pub job_order_id: ID,
