@@ -4,11 +4,21 @@
 //! meet specifications. Covers in-process inspections, SPC (statistical
 //! process control), non-conformance reporting, and corrective action
 //! initiation.
-use crate::types::{
-    LotId, Measurement, OperationId, QualityEventId, Result, Timestamp, WorkOrderId,
+//!
+//! ISA-95 models material quality testing via [`MaterialTestSpecification`]
+//! and [`QATestResult`], and equipment capability testing via
+//! [`EquipmentCapabilityTestSpecification`] and [`EquipmentCapabilityTestResult`].
+//! Non-conformance reporting and disposition decisions are MES concerns not
+//! covered by ISA-95, so [`NonConformanceReport`] and [`Disposition`] are
+//! defined here.
+
+use crate::types::Result;
+use rs95::core::{
+    equipment::{EquipmentCapabilityTestResult, EquipmentCapabilityTestSpecification},
+    material::{MaterialTestSpecification, QATestResult},
 };
 
-/// Disposition decision for a non-conforming item.
+/// Disposition decision applied to a non-conforming item.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Disposition {
     Accept,
@@ -18,65 +28,62 @@ pub enum Disposition {
     ReturnToSupplier,
 }
 
-/// Result of a single quality inspection.
+/// A non-conformance report raised when a lot or job fails to meet specification.
+///
+/// The `id` field uses the same `ID` type parameter as the surrounding ISA-95
+/// objects so that implementors can use a consistent identity strategy.
 #[derive(Debug, Clone)]
-pub struct InspectionResult {
-    pub event_id: QualityEventId,
-    pub work_order_id: WorkOrderId,
-    pub lot_id: Option<LotId>,
-    pub operation_id: OperationId,
-    pub characteristic: String,
-    pub measured: Measurement,
-    pub lower_spec_limit: Option<f64>,
-    pub upper_spec_limit: Option<f64>,
-    pub conforming: bool,
-    pub inspected_at: Timestamp,
-    pub inspector_id: Option<String>,
-}
-
-/// A non-conformance report raised against a lot or work order.
-#[derive(Debug, Clone)]
-pub struct NonConformanceReport {
-    pub event_id: QualityEventId,
-    pub work_order_id: WorkOrderId,
-    pub lot_id: Option<LotId>,
+pub struct NonConformanceReport<ID> {
+    pub id: ID,
+    pub job_order_id: ID,
+    pub material_lot_id: Option<ID>,
     pub description: String,
     pub disposition: Option<Disposition>,
-    pub raised_at: Timestamp,
-    pub closed_at: Option<Timestamp>,
+    /// ISO 8601 timestamp or site-specific format.
+    pub raised_at: Option<String>,
+    pub closed_at: Option<String>,
 }
 
 /// Core interface for quality management (MESA Function 7).
-pub trait QualityManagement {
-    /// Record an inspection result for an operation.
-    fn record_inspection(&mut self, result: InspectionResult) -> Result<InspectionResult>;
+pub trait QualityManagement<ID> {
+    /// Return a material test specification by ID.
+    fn get_material_test_spec(&self, id: &ID) -> Result<MaterialTestSpecification<ID>>;
 
-    /// Return all inspection results for a work order.
-    fn inspections_for_work_order(
+    /// Record a material quality test result.
+    fn record_material_test(
+        &mut self,
+        result: QATestResult<ID>,
+    ) -> Result<QATestResult<ID>>;
+
+    /// Return all material test results for a given material lot.
+    fn results_for_lot(&self, lot_id: &ID) -> Result<Vec<QATestResult<ID>>>;
+
+    /// Return an equipment capability test specification by ID.
+    fn get_equipment_capability_spec(
         &self,
-        work_order_id: &WorkOrderId,
-    ) -> Result<Vec<InspectionResult>>;
+        id: &ID,
+    ) -> Result<EquipmentCapabilityTestSpecification<ID>>;
 
-    /// Return all inspection results for a lot.
-    fn inspections_for_lot(&self, lot_id: &LotId) -> Result<Vec<InspectionResult>>;
+    /// Record an equipment capability test result.
+    fn record_equipment_capability(
+        &mut self,
+        result: EquipmentCapabilityTestResult<ID>,
+    ) -> Result<EquipmentCapabilityTestResult<ID>>;
 
-    /// Raise a non-conformance report.
+    /// Raise a non-conformance report against a job order or lot.
     fn raise_ncr(
         &mut self,
-        work_order_id: &WorkOrderId,
-        lot_id: Option<&LotId>,
-        description: &str,
-        at: Timestamp,
-    ) -> Result<NonConformanceReport>;
+        ncr: NonConformanceReport<ID>,
+    ) -> Result<NonConformanceReport<ID>>;
 
     /// Apply a disposition decision to an open NCR and close it.
     fn close_ncr(
         &mut self,
-        event_id: &QualityEventId,
+        ncr_id: &ID,
         disposition: Disposition,
-        at: Timestamp,
-    ) -> Result<NonConformanceReport>;
+        closed_at: Option<String>,
+    ) -> Result<NonConformanceReport<ID>>;
 
     /// Return all open (undisposed) non-conformance reports.
-    fn open_ncrs(&self) -> Result<Vec<NonConformanceReport>>;
+    fn open_ncrs(&self) -> Result<Vec<NonConformanceReport<ID>>>;
 }

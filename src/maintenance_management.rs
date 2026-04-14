@@ -4,87 +4,57 @@
 //! equipment availability. Covers preventive schedules, corrective work
 //! orders, and spare-parts requests. Feeds availability data back to
 //! resource allocation and scheduling.
-use crate::types::{EquipmentId, MaintenanceTaskId, Result, Timestamp};
+//!
+//! ISA-95 represents maintenance work orders as [`JobOrder`] with
+//! `work_type = OperationType::Maintenance`. Physical assets subject to
+//! maintenance are modelled as [`PhysicalAsset`], and their capability
+//! is verified via [`PhysicalAssetCapabilityTestResult`].
 
-/// Distinguishes scheduled preventive maintenance from reactive repair.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MaintenanceType {
-    Preventive,
-    Corrective,
-    Predictive,
-    ConditionBased,
-}
-
-/// Lifecycle state of a maintenance task.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MaintenanceStatus {
-    Planned,
-    InProgress,
-    Completed,
-    Deferred,
-    Cancelled,
-}
-
-/// A maintenance task or work order.
-#[derive(Debug, Clone)]
-pub struct MaintenanceTask {
-    pub id: MaintenanceTaskId,
-    pub equipment_id: EquipmentId,
-    pub maintenance_type: MaintenanceType,
-    pub description: String,
-    pub status: MaintenanceStatus,
-    pub scheduled_at: Option<Timestamp>,
-    pub started_at: Option<Timestamp>,
-    pub completed_at: Option<Timestamp>,
-    pub technician: Option<String>,
-    pub downtime_minutes: Option<u32>,
-}
+use crate::types::Result;
+use rs95::core::{
+    operations::{JobOrder, JobResponse, OperationType},
+    physical_asset::{
+        PhysicalAsset, PhysicalAssetCapabilityTestResult, PhysicalAssetCapabilityTestSpecification,
+    },
+};
 
 /// Core interface for maintenance management (MESA Function 9).
-pub trait MaintenanceManagement {
-    /// Create a new planned maintenance task.
-    fn plan_task(
+pub trait MaintenanceManagement<ID> {
+    /// Return a physical asset by ID.
+    fn get_physical_asset(&self, id: &ID) -> Result<PhysicalAsset<ID>>;
+
+    /// Create a maintenance job order.
+    ///
+    /// Implementations should enforce `order.work_type == OperationType::Maintenance`.
+    fn create_maintenance_order(&mut self, order: JobOrder<ID>) -> Result<JobOrder<ID>>;
+
+    /// Return all maintenance job orders matching the given operation type.
+    ///
+    /// Pass `OperationType::Maintenance` for standard maintenance orders.
+    fn list_maintenance_orders(
+        &self,
+        work_type: OperationType,
+    ) -> Result<Vec<JobOrder<ID>>>;
+
+    /// Record the job response (outcome) for a completed maintenance order.
+    fn record_job_response(&mut self, response: JobResponse<ID>) -> Result<JobResponse<ID>>;
+
+    /// Return the capability test specification for a physical asset class.
+    fn get_capability_spec(
+        &self,
+        id: &ID,
+    ) -> Result<PhysicalAssetCapabilityTestSpecification<ID>>;
+
+    /// Record the result of a physical asset capability test (e.g. post-maintenance
+    /// inspection confirming the asset is fit for service).
+    fn record_capability_test(
         &mut self,
-        equipment_id: &EquipmentId,
-        maintenance_type: MaintenanceType,
-        description: &str,
-        scheduled_at: Timestamp,
-    ) -> Result<MaintenanceTask>;
+        result: PhysicalAssetCapabilityTestResult<ID>,
+    ) -> Result<PhysicalAssetCapabilityTestResult<ID>>;
 
-    /// Raise an unplanned corrective task (e.g. in response to a breakdown).
-    fn raise_corrective(
-        &mut self,
-        equipment_id: &EquipmentId,
-        description: &str,
-        at: Timestamp,
-    ) -> Result<MaintenanceTask>;
-
-    /// Record that a technician has started work on a task.
-    fn start_task(
-        &mut self,
-        id: &MaintenanceTaskId,
-        technician: &str,
-        at: Timestamp,
-    ) -> Result<MaintenanceTask>;
-
-    /// Complete a task and record the total downtime incurred.
-    fn complete_task(
-        &mut self,
-        id: &MaintenanceTaskId,
-        downtime_minutes: u32,
-        at: Timestamp,
-    ) -> Result<MaintenanceTask>;
-
-    /// Defer a planned task to a new scheduled time.
-    fn defer_task(
-        &mut self,
-        id: &MaintenanceTaskId,
-        new_scheduled_at: Timestamp,
-    ) -> Result<MaintenanceTask>;
-
-    /// Return all tasks for an equipment item, ordered by scheduled date.
-    fn tasks_for_equipment(&self, equipment_id: &EquipmentId) -> Result<Vec<MaintenanceTask>>;
-
-    /// Return all currently open (planned or in-progress) tasks.
-    fn open_tasks(&self) -> Result<Vec<MaintenanceTask>>;
+    /// Return all capability test results for a physical asset.
+    fn capability_history(
+        &self,
+        asset_id: &ID,
+    ) -> Result<Vec<PhysicalAssetCapabilityTestResult<ID>>>;
 }

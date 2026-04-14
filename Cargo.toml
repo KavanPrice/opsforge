@@ -9,3 +9,4 @@ readme = "README.md"
 keywords = ["mesa", "manufacturing", "mom", "mes"]
 
 [dependencies]
+rs95 = "0.2.0"

@@ -3,59 +3,36 @@
 //! Controls the flow of production units (work orders, batches, lots) to
 //! the shop floor. Issues work, tracks progress, and manages the
 //! prioritised queue of work waiting to be executed.
-use crate::types::{LotId, OperationId, ResourceId, Result, Status, Timestamp, WorkOrderId};
 
-/// A work order as it appears on the dispatch list.
-#[derive(Debug, Clone)]
-pub struct DispatchRecord {
-    pub work_order_id: WorkOrderId,
-    pub lot_id: Option<LotId>,
-    pub operation_id: OperationId,
-    pub resource_id: ResourceId,
-    pub status: Status,
-    pub issued_at: Option<Timestamp>,
-    pub started_at: Option<Timestamp>,
-    pub completed_at: Option<Timestamp>,
-    pub quantity_ordered: f64,
-    pub quantity_completed: f64,
-}
+use crate::types::Result;
+use rs95::core::operations::{
+    JobOrder, JobOrderCommandType, JobOrderStatus, OperationsResponse,
+};
 
 /// Core interface for dispatching production units (MESA Function 3).
-pub trait Dispatching {
-    /// Issue a work order to the shop floor, making it visible to operators.
-    fn issue(&mut self, work_order_id: &WorkOrderId, at: Timestamp) -> Result<DispatchRecord>;
+pub trait Dispatching<ID> {
+    /// Issue a job order to the shop floor, making it visible to operators.
+    fn issue(&mut self, order: JobOrder<ID>) -> Result<JobOrder<ID>>;
 
-    /// Record that an operator has started work on an operation.
-    fn start_operation(
+    /// Send a command to an active job order (Start, Stop, Hold, Restart, Abort).
+    fn send_command(
         &mut self,
-        work_order_id: &WorkOrderId,
-        operation_id: &OperationId,
-        at: Timestamp,
-    ) -> Result<DispatchRecord>;
+        job_order_id: &ID,
+        command: JobOrderCommandType,
+    ) -> Result<JobOrder<ID>>;
 
-    /// Record completion of an operation and the quantity produced.
-    fn complete_operation(
+    /// Return a job order by ID.
+    fn get_job_order(&self, id: &ID) -> Result<JobOrder<ID>>;
+
+    /// Return all job orders matching the given status.
+    fn list_by_status(&self, status: JobOrderStatus) -> Result<Vec<JobOrder<ID>>>;
+
+    /// Record the operations response for a completed or aborted job order.
+    fn record_response(
         &mut self,
-        work_order_id: &WorkOrderId,
-        operation_id: &OperationId,
-        quantity_completed: f64,
-        at: Timestamp,
-    ) -> Result<DispatchRecord>;
+        response: OperationsResponse<ID>,
+    ) -> Result<OperationsResponse<ID>>;
 
-    /// Suspend an in-progress work order (e.g. for a quality hold or breakdown).
-    fn suspend(
-        &mut self,
-        work_order_id: &WorkOrderId,
-        reason: &str,
-        at: Timestamp,
-    ) -> Result<DispatchRecord>;
-
-    /// Resume a suspended work order.
-    fn resume(&mut self, work_order_id: &WorkOrderId, at: Timestamp) -> Result<DispatchRecord>;
-
-    /// Return the dispatch record for a work order.
-    fn get(&self, work_order_id: &WorkOrderId) -> Result<DispatchRecord>;
-
-    /// Return all work orders currently queued or active on a resource.
-    fn queue_for_resource(&self, resource_id: &ResourceId) -> Result<Vec<DispatchRecord>>;
+    /// Return the operations response for a job order.
+    fn get_response(&self, job_order_id: &ID) -> Result<OperationsResponse<ID>>;
 }

@@ -3,56 +3,61 @@
 //! Manages the controlled documents that accompany manufacturing operations:
 //! work instructions, recipes, engineering drawings, SOPs, and forms.
 //! Ensures operators work from the correct, approved revision.
-use crate::types::{DocumentId, OperationId, Result, Timestamp, WorkOrderId};
+//!
+//! In ISA-95 terms, [`WorkMaster`] represents the master recipe or procedure
+//! and [`OperationsDefinition`] provides the detailed operational breakdown.
+//! The approval workflow (draft → review → approved → obsolete) is an MES
+//! concern not modelled by ISA-95, so [`ApprovalState`] is defined here.
 
-/// Revision lifecycle state of a document.
+use crate::types::Result;
+use rs95::core::operations::{OperationsDefinition, WorkMaster};
+
+/// Revision lifecycle state of a work master or operations definition.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DocumentStatus {
+pub enum ApprovalState {
     Draft,
     InReview,
     Approved,
     Obsolete,
 }
 
-/// A controlled document and its current revision metadata.
-#[derive(Debug, Clone)]
-pub struct Document {
-    pub id: DocumentId,
-    pub title: String,
-    pub revision: String,
-    pub status: DocumentStatus,
-    pub content_ref: String,
-    pub approved_at: Option<Timestamp>,
-    pub approved_by: Option<String>,
-}
-
 /// Core interface for document control (MESA Function 4).
-pub trait DocumentControl {
-    /// Retrieve a specific revision of a document.
-    fn get(&self, id: &DocumentId) -> Result<Document>;
+pub trait DocumentControl<ID> {
+    /// Return a work master (master recipe / procedure) by ID.
+    fn get_work_master(&self, id: &ID) -> Result<WorkMaster<ID>>;
 
-    /// List all documents associated with a work order or operation.
-    fn list_for_operation(&self, operation_id: &OperationId) -> Result<Vec<Document>>;
+    /// Return all work masters, optionally filtered by approval state.
+    fn list_work_masters(
+        &self,
+        state: Option<&ApprovalState>,
+    ) -> Result<Vec<WorkMaster<ID>>>;
 
-    /// List all documents associated with a work order.
-    fn list_for_work_order(&self, work_order_id: &WorkOrderId) -> Result<Vec<Document>>;
+    /// Persist a new or updated work master.
+    fn save_work_master(&mut self, master: WorkMaster<ID>) -> Result<WorkMaster<ID>>;
 
-    /// Create a new draft document. Returns the created [`Document`].
-    fn create(&mut self, title: &str, content_ref: &str) -> Result<Document>;
+    /// Return an operations definition by ID.
+    fn get_operations_definition(&self, id: &ID) -> Result<OperationsDefinition<ID>>;
 
-    /// Submit a document for approval review.
-    fn submit_for_review(&mut self, id: &DocumentId) -> Result<Document>;
+    /// Return all operations definitions linked to a work master.
+    fn definitions_for_work_master(
+        &self,
+        work_master_id: &ID,
+    ) -> Result<Vec<OperationsDefinition<ID>>>;
 
-    /// Approve a document at the given revision, making it effective.
-    fn approve(&mut self, id: &DocumentId, approved_by: &str, at: Timestamp) -> Result<Document>;
-
-    /// Obsolete an approved document, preventing further use.
-    fn obsolete(&mut self, id: &DocumentId) -> Result<Document>;
-
-    /// Associate a document with a specific operation.
-    fn attach_to_operation(
+    /// Persist a new or updated operations definition.
+    fn save_operations_definition(
         &mut self,
-        document_id: &DocumentId,
-        operation_id: &OperationId,
-    ) -> Result<()>;
+        definition: OperationsDefinition<ID>,
+    ) -> Result<OperationsDefinition<ID>>;
+
+    /// Transition a work master to a new approval state.
+    ///
+    /// Implementations should enforce valid state transitions
+    /// (e.g. Draft → InReview → Approved → Obsolete).
+    fn set_approval_state(
+        &mut self,
+        work_master_id: &ID,
+        state: ApprovalState,
+        changed_by: &str,
+    ) -> Result<ApprovalState>;
 }

@@ -4,76 +4,70 @@
 //! labour utilisation. Provides visibility into workforce status and
 //! ensures only qualified personnel are assigned to operations that
 //! require specific skills or certifications.
-use crate::types::{OperationId, PersonnelId, Result, Timestamp};
+//!
+//! ISA-95 models personnel classifications ([`PersonnelClass`]), individual
+//! workers ([`Person`]), and qualification results ([`QualificationTestResult`]).
+//! Attendance tracking (clock-in/out) is an MES operational concern not
+//! covered by ISA-95, so [`AttendanceRecord`] is defined here.
 
-/// Current attendance / shift status of a worker.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AttendanceStatus {
-    ClockedIn,
-    OnBreak,
-    ClockedOut,
-    Absent,
-}
+use crate::types::Result;
+use rs95::core::{
+    personnel::{Person, PersonnelClass, QualificationTestResult, QualificationTestSpecification},
+    process_segment::PersonnelSegmentSpecification,
+};
 
-/// A certification or qualification held by a worker.
+/// A clock-in or clock-out attendance event for a worker.
 #[derive(Debug, Clone)]
-pub struct Certification {
-    pub name: String,
-    pub issued_at: Timestamp,
-    pub expires_at: Option<Timestamp>,
-}
-
-/// A personnel record including qualifications and current status.
-#[derive(Debug, Clone)]
-pub struct PersonnelRecord {
-    pub id: PersonnelId,
-    pub name: String,
-    pub department: String,
-    pub attendance: AttendanceStatus,
-    pub certifications: Vec<Certification>,
-}
-
-/// An assignment of a worker to a specific operation.
-#[derive(Debug, Clone)]
-pub struct LaborAssignment {
-    pub personnel_id: PersonnelId,
-    pub operation_id: OperationId,
-    pub start: Timestamp,
-    pub end: Option<Timestamp>,
-    pub role: String,
+pub struct AttendanceRecord<ID> {
+    pub person_id: ID,
+    pub clocked_in_at: Option<String>,
+    pub clocked_out_at: Option<String>,
+    pub shift: Option<String>,
 }
 
 /// Core interface for labor management (MESA Function 6).
-pub trait LaborManagement {
-    /// Return the personnel record for a worker.
-    fn get_personnel(&self, id: &PersonnelId) -> Result<PersonnelRecord>;
+pub trait LaborManagement<ID> {
+    /// Return a worker by ID.
+    fn get_person(&self, id: &ID) -> Result<Person<ID>>;
+
+    /// Return a personnel class (role, skill category) by ID.
+    fn get_personnel_class(&self, id: &ID) -> Result<PersonnelClass<ID>>;
 
     /// Return all workers currently clocked in.
-    fn active_workforce(&self) -> Result<Vec<PersonnelRecord>>;
+    fn active_workforce(&self) -> Result<Vec<Person<ID>>>;
 
-    /// Clock a worker in at the given time.
-    fn clock_in(&mut self, id: &PersonnelId, at: Timestamp) -> Result<PersonnelRecord>;
-
-    /// Clock a worker out at the given time.
-    fn clock_out(&mut self, id: &PersonnelId, at: Timestamp) -> Result<PersonnelRecord>;
-
-    /// Assign a worker to an operation with a specific role.
-    fn assign(
+    /// Record a clock-in or clock-out event for a worker.
+    fn record_attendance(
         &mut self,
-        personnel_id: &PersonnelId,
-        operation_id: &OperationId,
-        role: &str,
-        at: Timestamp,
-    ) -> Result<LaborAssignment>;
+        record: AttendanceRecord<ID>,
+    ) -> Result<AttendanceRecord<ID>>;
 
-    /// Complete a labor assignment (worker finished the operation).
-    fn complete_assignment(
+    /// Return the most recent attendance record for a worker.
+    fn attendance_for_person(&self, person_id: &ID) -> Result<Option<AttendanceRecord<ID>>>;
+
+    /// Return the qualification test specification for a given certification.
+    fn get_qualification_spec(
+        &self,
+        id: &ID,
+    ) -> Result<QualificationTestSpecification<ID>>;
+
+    /// Record a qualification test result for a worker.
+    fn record_qualification(
         &mut self,
-        personnel_id: &PersonnelId,
-        operation_id: &OperationId,
-        at: Timestamp,
-    ) -> Result<LaborAssignment>;
+        result: QualificationTestResult<ID>,
+    ) -> Result<QualificationTestResult<ID>>;
 
-    /// Return all workers qualified for a given certification name.
-    fn qualified_for(&self, certification: &str) -> Result<Vec<PersonnelRecord>>;
+    /// Return all workers whose qualification results satisfy the given
+    /// test specification.
+    fn qualified_for_spec(
+        &self,
+        spec_id: &ID,
+    ) -> Result<Vec<Person<ID>>>;
+
+    /// Return the personnel segment specifications (skill/quantity requirements)
+    /// for an operations segment.
+    fn personnel_requirements(
+        &self,
+        operations_segment_id: &ID,
+    ) -> Result<Vec<PersonnelSegmentSpecification<ID>>>;
 }

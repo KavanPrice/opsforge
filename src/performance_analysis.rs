@@ -3,12 +3,19 @@
 //! Compares actual manufacturing results against planned targets and
 //! historical baselines. Produces KPI reports (OEE, yield, cycle time,
 //! scrap rate, etc.) and surfaces trends that drive continuous improvement.
-use crate::types::{EquipmentId, MetricId, Result, Timestamp, WorkOrderId};
+//!
+//! ISA-95 captures actual performance data in [`OperationsPerformance`] and
+//! declared capability in [`OperationsCapability`]. KPI target definitions
+//! and OEE calculations are MES analytical concerns not modelled by ISA-95,
+//! so [`KpiTarget`] and [`OeeReport`] are defined here.
 
-/// A named performance metric definition with its target value and unit.
+use crate::types::Result;
+use rs95::core::operations::{OperationsCapability, OperationsPerformance};
+
+/// A named KPI with its target value and statistical control limits.
 #[derive(Debug, Clone)]
-pub struct MetricDefinition {
-    pub id: MetricId,
+pub struct KpiTarget<ID> {
+    pub id: ID,
     pub name: String,
     pub description: String,
     pub unit: String,
@@ -17,23 +24,13 @@ pub struct MetricDefinition {
     pub upper_control_limit: Option<f64>,
 }
 
-/// A measured KPI value captured at a point in time.
+/// Overall Equipment Effectiveness breakdown for a piece of equipment over a
+/// given time period.
 #[derive(Debug, Clone)]
-pub struct MetricReading {
-    pub metric_id: MetricId,
-    pub value: f64,
-    pub work_order_id: Option<WorkOrderId>,
-    pub equipment_id: Option<EquipmentId>,
-    pub period_start: Timestamp,
-    pub period_end: Timestamp,
-}
-
-/// Overall Equipment Effectiveness breakdown.
-#[derive(Debug, Clone)]
-pub struct OeeReport {
-    pub equipment_id: EquipmentId,
-    pub period_start: Timestamp,
-    pub period_end: Timestamp,
+pub struct OeeReport<ID> {
+    pub equipment_id: ID,
+    pub period_start: Option<String>,
+    pub period_end: Option<String>,
     /// Availability = run time / planned production time.
     pub availability: f64,
     /// Performance = actual output rate / theoretical maximum rate.
@@ -45,32 +42,38 @@ pub struct OeeReport {
 }
 
 /// Core interface for performance analysis (MESA Function 11).
-pub trait PerformanceAnalysis {
-    /// Register a new KPI metric definition.
-    fn define_metric(&mut self, definition: MetricDefinition) -> Result<MetricDefinition>;
+pub trait PerformanceAnalysis<ID> {
+    /// Persist a KPI target definition.
+    fn define_kpi(&mut self, target: KpiTarget<ID>) -> Result<KpiTarget<ID>>;
 
-    /// Return a metric definition by ID.
-    fn get_metric(&self, id: &MetricId) -> Result<MetricDefinition>;
+    /// Return a KPI target definition by ID.
+    fn get_kpi(&self, id: &ID) -> Result<KpiTarget<ID>>;
 
-    /// Record an actual metric reading for a time period.
-    fn record_reading(&mut self, reading: MetricReading) -> Result<()>;
+    /// Record actual operations performance data for a time period.
+    fn record_performance(
+        &mut self,
+        performance: OperationsPerformance<ID>,
+    ) -> Result<OperationsPerformance<ID>>;
 
-    /// Return all readings for a metric within a time window.
-    fn readings_for_metric(
+    /// Return operations performance data by ID.
+    fn get_performance(&self, id: &ID) -> Result<OperationsPerformance<ID>>;
+
+    /// Return all performance records within an optional time window
+    /// (`from` and `to` as ISO 8601 strings).
+    fn performance_in_period(
         &self,
-        metric_id: &MetricId,
-        from: Timestamp,
-        to: Timestamp,
-    ) -> Result<Vec<MetricReading>>;
+        from: Option<&str>,
+        to: Option<&str>,
+    ) -> Result<Vec<OperationsPerformance<ID>>>;
 
-    /// Compute and return OEE for a piece of equipment over a time window.
+    /// Return the operations capability declaration for a resource.
+    fn get_capability(&self, id: &ID) -> Result<OperationsCapability<ID>>;
+
+    /// Compute OEE for a piece of equipment over a time window.
     fn compute_oee(
         &self,
-        equipment_id: &EquipmentId,
-        from: Timestamp,
-        to: Timestamp,
-    ) -> Result<OeeReport>;
-
-    /// Return a summary of all metric readings for a completed work order.
-    fn work_order_summary(&self, work_order_id: &WorkOrderId) -> Result<Vec<MetricReading>>;
+        equipment_id: &ID,
+        from: Option<&str>,
+        to: Option<&str>,
+    ) -> Result<OeeReport<ID>>;
 }
