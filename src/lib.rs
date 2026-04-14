@@ -14,6 +14,9 @@
 //! | `default-models` | [`default_models`] — concrete type aliases using [`uuid::Uuid`] |
 //! | `serde` | [`serde::Serialize`] / [`serde::Deserialize`] on all opsforge-owned types, and enables `rs95/serde` |
 //!
+//! For convenience, [`prelude`] re-exports all eleven traits, `Result`, and every
+//! opsforge-owned supporting type in a single glob import.
+//!
 //! ## MESA 11 Functions
 //!
 //! | # | Module | Trait |
@@ -32,6 +35,8 @@
 
 #[cfg(feature = "default-models")]
 pub mod default_models;
+
+pub mod prelude;
 
 pub mod data_collection;
 pub mod dispatching;
