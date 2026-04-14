@@ -13,6 +13,9 @@ rs95 = { version = "0.2.0", optional = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
 uuid = { version = "1.0", features = ["v4"], optional = true }
 
+[dev-dependencies]
+uuid = { version = "1.0", features = ["v4"] }
+
 [features]
 default = []
 serde = ["dep:serde", "rs95/serde"]
