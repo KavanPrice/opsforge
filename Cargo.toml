@@ -1,0 +1,11 @@
+[package]
+name = "opsforge"
+version = "0.1.0"
+edition = "2024"
+description = "Rust trait definitions for the MESA 11 Manufacturing Operations Management functions"
+license = "MIT"
+repository = "https://github.com/KavanPrice/opsforge.git"
+readme = "README.md"
+keywords = ["mesa", "manufacturing", "mom", "mes"]
+
+[dependencies]
